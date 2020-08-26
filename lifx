@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
 import sys
-from time import sleep
 from lifxlan import LifxLAN, BLUE, COLD_WHITE, CYAN, GOLD, GREEN, \
     ORANGE, PINK, PURPLE, RED, WARM_WHITE, WHITE, YELLOW
-import datetime
 from datetime import date, datetime,timedelta
 from astral.sun import sun
 from astral import LocationInfo
@@ -36,7 +34,6 @@ error_message = """Usage:
     auto will figure out where you are located and it will automatically adjust light
     The available predefined colors are:\n
 """+ ", ".join(colors.keys())
-lifx = LifxLAN()
 
 def perform_task(task):
     action = None
@@ -93,6 +90,8 @@ def autodim():
     else:
         print("\nWell, that didn't work. )")
         sys.exit()
+
+lifx = LifxLAN()
 
 if len(sys.argv) == 2:
     if sys.argv[1] == "auto":
