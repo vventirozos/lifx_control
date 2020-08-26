@@ -91,7 +91,7 @@ def autodim():
         perform_task("on")
         perform_task("night")
     else:
-        print("\nWell, that didn't work :()")
+        print("\nWell, that didn't work. )")
         sys.exit()
 
 if len(sys.argv) == 2:
