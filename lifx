@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+
+import sys
+from time import sleep
+from lifxlan import LifxLAN, BLUE, COLD_WHITE, CYAN, GOLD, GREEN, \
+    ORANGE, PINK, PURPLE, RED, WARM_WHITE, WHITE, YELLOW
+import datetime
+from datetime import date, datetime,timedelta
+from astral.sun import sun
+from astral import LocationInfo
+
+night_mode = [0, 0, 40535, 4500]
+evening_mode = [0, 0, 52535, 5000]
+day_mode = [0, 0, 65535, 5500]
+
+actions = ["on", "off", "day", "evening", "night", "reset","auto"]
+
+colors = {
+    "red": RED,
+    "orange": ORANGE,
+    "yellow": YELLOW,
+    "green": GREEN,
+    "cyan": CYAN,
+    "blue": BLUE,
+    "purple": PURPLE,
+    "pink": PINK,
+    "white": WHITE,
+    "cold_white": COLD_WHITE,
+    "warm_white": WARM_WHITE,
+    "gold": GOLD
+}
+
+error_message = """Usage:
+   python lifx [ <color>, on, off, day, evening, night, reset, auto ]
+   The available predefined colors are:
+""" + ", ".join(colors.keys())
+lifx = LifxLAN()
+
+def perform_task(task):
+    action = None
+    color = None
+    if task in colors:
+        color = colors[sys.argv[1].lower()]
+        print ("Changing color.")
+        lifx.set_color_all_lights(color, rapid=True)
+    elif task in actions:
+        if task == "on":
+            print("Turning light on.")
+            lifx.set_power_all_lights(True, rapid=True)
+        elif task == "off":
+            print("Turning light off.")
+            lifx.set_power_all_lights(False, rapid=True)
+        elif (task == "day" or task == "reset"):
+            print("Switching to day mode.")
+            lifx.set_color_all_lights(day_mode, rapid=True)
+        elif task == "evening":
+            print("Switching to evening mode.")
+            lifx.set_color_all_lights(evening_mode, rapid=True)
+        elif task == "night":
+            print("Switching to night mode.")
+            lifx.set_color_all_lights(night_mode, rapid=True)
+        elif task == "auto":
+            return
+    else:
+        print("Not color or action.\n")
+        print(error_message)
+        sys.exit()
+
+def autodim():
+    offset=2
+    city = LocationInfo("Athens", "Greece", "Europe/Athens", 37.9, 23.7)
+    s = sun(city.observer, date=date.today(), tzinfo=city.timezone)
+    sunset=s["sunset"].replace(tzinfo=None)
+    now=datetime.now()
+    evening_start=sunset - timedelta(hours=offset)
+    evening_stop=sunset + timedelta(hours=offset)
+    daystart=datetime.combine(now.date(),
+        datetime.strptime('9:30:00','%H:%M:%S').time())
+    if (now >= daystart and now < evening_start):
+        perform_task("on")
+        perform_task("day")
+    elif (now >= evening_start and now < evening_stop):
+        perform_task("on")
+        perform_task("evening")
+    elif (now > evening_stop or now < daystart):
+        perform_task("on")
+        perform_task("night")
+    else:
+        print("\nWell, that didn't work :()")
+        sys.exit()
+
+if len(sys.argv) == 2:
+    if sys.argv[1] == "auto":
+        autodim()
+    else:
+        perform_task(sys.argv[1])
+else:
+    print(error_message)
+    sys.exit()
