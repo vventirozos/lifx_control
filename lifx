@@ -8,6 +8,7 @@ import datetime
 from datetime import date, datetime,timedelta
 from astral.sun import sun
 from astral import LocationInfo
+import geocoder
 
 night_mode = [0, 0, 40535, 4500]
 evening_mode = [0, 0, 52535, 5000]
@@ -31,9 +32,10 @@ colors = {
 }
 
 error_message = """Usage:
-   python lifx [ <color>, on, off, day, evening, night, reset, auto ]
-   The available predefined colors are:
-""" + ", ".join(colors.keys())
+    python lifx [ <color>, on, off, day, evening, night, reset, auto ]
+    auto will figure out where you are located and it will automatically adjust light
+    The available predefined colors are:\n
+"""+ ", ".join(colors.keys())
 lifx = LifxLAN()
 
 def perform_task(task):
@@ -68,9 +70,12 @@ def perform_task(task):
 
 def autodim():
     offset=2
-    city = LocationInfo("Athens", "Greece", "Europe/Athens", 37.9, 23.7)
+    g = geocoder.ip('me')
+    city = LocationInfo(g.city)
+    print("Located at : {}, {}".format(g.city, g.country))
     s = sun(city.observer, date=date.today(), tzinfo=city.timezone)
     sunset=s["sunset"].replace(tzinfo=None)
+    print ("sunset time : {}".format(sunset))
     now=datetime.now()
     evening_start=sunset - timedelta(hours=offset)
     evening_stop=sunset + timedelta(hours=offset)
