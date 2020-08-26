@@ -79,13 +79,10 @@ def autodim():
     daystart=datetime.combine(now.date(),
         datetime.strptime('9:30:00','%H:%M:%S').time())
     if (now >= daystart and now < evening_start):
-        perform_task("on")
         perform_task("day")
     elif (now >= evening_start and now < evening_stop):
-        perform_task("on")
         perform_task("evening")
     elif (now > evening_stop or now < daystart):
-        perform_task("on")
         perform_task("night")
     else:
         print("\nWell, that didn't work. )")
@@ -111,7 +108,6 @@ def get_lamp_state(lamps):
             print ("Failed to get power state.")
     return state
 
-
 def main():
     if len(sys.argv) == 2:
         if (sys.argv[1] == "auto" and state == 1):
@@ -128,6 +124,6 @@ def main():
 
 state=get_lamp_state(1)
 lifx = LifxLAN()
+
 if __name__ == "__main__":
-    # execute only if run as a script
     main()
