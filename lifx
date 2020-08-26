@@ -91,13 +91,43 @@ def autodim():
         print("\nWell, that didn't work. )")
         sys.exit()
 
-lifx = LifxLAN()
-
-if len(sys.argv) == 2:
-    if sys.argv[1] == "auto":
-        autodim()
+def get_lamp_state(lamps):
+    num_lights = lamps
+    lifx = LifxLAN(num_lights)
+    devices = lifx.get_lights()
+    state=None
+    if not len(devices):
+        print("No lamps found")
+        sys.exit
     else:
-        perform_task(sys.argv[1])
-else:
-    print(error_message)
-    sys.exit()
+        bulb = devices[0]
+        print("Selected {}".format(bulb.get_label()))
+        power = bulb.get_power()
+        if power == 0:
+            state=0
+        elif power == 65535:
+            state=1
+        else:
+            print ("Failed to get power state.")
+    return state
+
+
+def main():
+    if len(sys.argv) == 2:
+        if (sys.argv[1] == "auto" and state == 1):
+            autodim()
+        elif state == 1:
+            perform_task(sys.argv[1])
+        elif state ==0 and sys.argv[1] !="on":
+            print("Lamp is off.")
+        else:
+            perform_task(sys.argv[1])
+    else:
+        print(error_message)
+        sys.exit()
+
+state=get_lamp_state(1)
+lifx = LifxLAN()
+if __name__ == "__main__":
+    # execute only if run as a script
+    main()
