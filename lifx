@@ -8,11 +8,17 @@ from astral.sun import sun
 from astral import LocationInfo
 import geocoder
 
-night_mode = [0, 0, 40535, 4500]
-evening_mode = [0, 0, 52535, 5000]
-day_mode = [0, 0, 65535, 5500]
+## Discovery based on the lamp count , set to 1, giving an accurate number makes
+## things faster..
+lamps_cnt = 1
+lifx = LifxLAN(lamps_cnt)
 
-actions = ["on", "off", "day", "evening", "night", "reset","auto"]
+## my prefered profile, TBD external profiles for day , evening , night
+day_mode = [0, 0, 65535, 5500]
+evening_mode = [0, 0, 52535, 5000]
+night_mode = [0, 0, 40535, 4500]
+
+actions = ["on", "off", "day", "evening", "night", "reset", "auto"]
 
 colors = {
     "red": RED,
@@ -35,29 +41,48 @@ error_message = """Usage:
     The available predefined colors are:\n
 """+ ", ".join(colors.keys())
 
-def perform_task(task):
+## gets all lifx devices within the range you gave in lamps_cnt on the top
+def get_lamps():
+    lamps = lifx.get_lights()
+    return lamps
+
+## returns the lamps state, 0 if off, 1 if on
+def get_lamp_state(lamp):
+    state=None
+    print("Selected {}".format(lamp.get_label()))
+    power = lamp.get_power()
+    if power == 0:
+        state = 0
+    elif power == 65535:
+        state = 1
+    else:
+        print ("Failed to get power state.")
+    return state
+
+## Does some checks, performs the task for a lamp
+def perform_task(task,lamp):
     action = None
     color = None
     if task in colors:
         color = colors[sys.argv[1].lower()]
         print ("Changing color.")
-        lifx.set_color_all_lights(color, rapid=True)
+        lamp.set_color(color, rapid=True)
     elif task in actions:
         if task == "on":
             print("Turning light on.")
-            lifx.set_power_all_lights(True, rapid=True)
+            lamp.set_power(True, rapid=True)
         elif task == "off":
             print("Turning light off.")
-            lifx.set_power_all_lights(False, rapid=True)
+            lamp.set_power(False, rapid=True)
         elif (task == "day" or task == "reset"):
             print("Switching to day mode.")
-            lifx.set_color_all_lights(day_mode, rapid=True)
+            lamp.set_color(day_mode, rapid=True)
         elif task == "evening":
             print("Switching to evening mode.")
-            lifx.set_color_all_lights(evening_mode, rapid=True)
+            lamp.set_color(evening_mode, rapid=True)
         elif task == "night":
             print("Switching to night mode.")
-            lifx.set_color_all_lights(night_mode, rapid=True)
+            lamp.set_color(night_mode, rapid=True)
         elif task == "auto":
             return
     else:
@@ -65,8 +90,18 @@ def perform_task(task):
         print(error_message)
         sys.exit()
 
-def autodim():
-    offset=2
+## gets the location from your public ip, calculates sunset time and
+## determines the task it needs to send to perform_task.
+## from 9:30am - sunset-2hours it will go in day mode,
+## from sunset-2hours to sunset+2hours it will go in evening mode,
+## from sunset+2 - 9:30am it will go in night mode.
+
+def autodim(lamp):
+    ## changes offsets from sunset and day start time.
+    offset_before_sunset=2
+    offset_after_sunset=2
+    day_start="9:30:00"
+    #
     g = geocoder.ip('me')
     city = LocationInfo(g.city)
     print("Located at : {}, {}".format(g.city, g.country))
@@ -74,56 +109,37 @@ def autodim():
     sunset=s["sunset"].replace(tzinfo=None)
     print ("sunset time : {}".format(sunset))
     now=datetime.now()
-    evening_start=sunset - timedelta(hours=offset)
-    evening_stop=sunset + timedelta(hours=offset)
+    evening_start=sunset - timedelta(hours=offset_before_sunset)
+    evening_stop=sunset + timedelta(hours=offset_after_sunset)
     daystart=datetime.combine(now.date(),
-        datetime.strptime('9:30:00','%H:%M:%S').time())
+        datetime.strptime(day_start,'%H:%M:%S').time())
     if (now >= daystart and now < evening_start):
-        perform_task("day")
+        perform_task("day",lamp)
     elif (now >= evening_start and now < evening_stop):
-        perform_task("evening")
+        perform_task("evening",lamp)
     elif (now > evening_stop or now < daystart):
-        perform_task("night")
+        perform_task("night",lamp)
     else:
         print("\nWell, that didn't work. )")
         sys.exit()
 
-def get_lamp_state(lamps):
-    num_lights = lamps
-    lifx = LifxLAN(num_lights)
-    devices = lifx.get_lights()
-    state=None
-    if not len(devices):
-        print("No lamps found")
-        sys.exit
-    else:
-        bulb = devices[0]
-        print("Selected {}".format(bulb.get_label()))
-        power = bulb.get_power()
-        if power == 0:
-            state=0
-        elif power == 65535:
-            state=1
-        else:
-            print ("Failed to get power state.")
-    return state
-
+## main loop will loop into an array of lamps and it will perform the task
+# checking if the lamp is 'on', if lamp is off it won't turn it on.
 def main():
     if len(sys.argv) == 2:
-        if (sys.argv[1] == "auto" and state == 1):
-            autodim()
-        elif state == 1:
-            perform_task(sys.argv[1])
-        elif state ==0 and sys.argv[1] !="on":
-            print("Lamp is off.")
-        else:
-            perform_task(sys.argv[1])
+        for lamp in get_lamps():
+            state = get_lamp_state(lamp)
+            if (sys.argv[1] == "auto" and state == 1):
+                autodim(lamp)
+            elif state == 1:
+                perform_task(sys.argv[1],lamp)
+            elif state ==0 and sys.argv[1] !="on":
+                print("Lamp is off.")
+            else:
+                perform_task(sys.argv[1],lamp)
     else:
         print(error_message)
         sys.exit()
-
-state=get_lamp_state(1)
-lifx = LifxLAN()
 
 if __name__ == "__main__":
     main()
