@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import sys
 from lifxlan import LifxLAN, BLUE, COLD_WHITE, CYAN, GOLD, GREEN, \
     ORANGE, PINK, PURPLE, RED, WARM_WHITE, WHITE, YELLOW
@@ -16,9 +15,9 @@ lifx = LifxLAN(lamps_cnt)
 ## my prefered profile, TBD external profiles for day , evening , night
 day_mode = [0, 0, 65535, 5500]
 evening_mode = [0, 0, 52535, 5000]
-night_mode = [0, 0, 40535, 4500]
-
-actions = ["on", "off", "day", "evening", "night", "reset", "auto"]
+night_mode = [0, 0, 37535, 4000]
+latenight_mode = [0, 0, 25000, 3500]
+actions = ["on", "off", "day", "evening", "night", "latenight", "reset", "auto"]
 
 colors = {
     "red": RED,
@@ -36,7 +35,7 @@ colors = {
 }
 
 error_message = """Usage:
-    python lifx [ <color>, on, off, day, evening, night, reset, auto ]
+    python lifx [ <color>, on, off, day, evening, night, latenight, reset, auto ]
     auto will figure out where you are located and it will automatically adjust light
     The available predefined colors are:\n
 """+ ", ".join(colors.keys())
@@ -83,6 +82,9 @@ def perform_task(task,lamp):
         elif task == "night":
             print("Switching to night mode.")
             lamp.set_color(night_mode, rapid=True)
+        elif task == "latenight":
+            print("Switching to late night mode.")
+            lamp.set_color(latenight_mode, rapid=True)
         elif task == "auto":
             return
     else:
@@ -98,10 +100,10 @@ def perform_task(task,lamp):
 
 def autodim(lamp):
     ## changes offsets from sunset and day start time.
-    offset_before_sunset=2
-    offset_after_sunset=2
-    day_start="9:30:00"
-    #
+    offset_before_sunset = 1
+    offset_after_sunset = 1
+    day_start = "9:30:00"
+    latenight_start = "1:30:00"
     g = geocoder.ip('me')
     city = LocationInfo(g.city)
     print("Located at : {}, {}".format(g.city, g.country))
@@ -109,16 +111,18 @@ def autodim(lamp):
     sunset=s["sunset"].replace(tzinfo=None)
     print ("sunset time : {}".format(sunset))
     now=datetime.now()
-    evening_start=sunset - timedelta(hours=offset_before_sunset)
-    evening_stop=sunset + timedelta(hours=offset_after_sunset)
-    daystart=datetime.combine(now.date(),
-        datetime.strptime(day_start,'%H:%M:%S').time())
+    evening_start = sunset - timedelta(hours=offset_before_sunset)
+    evening_stop = sunset + timedelta(hours=offset_after_sunset)
+    daystart = datetime.combine(now.date(), datetime.strptime(day_start,'%H:%M:%S').time())
+    latenight_time = datetime.combine(now.date(), datetime.strptime(latenight_start,'%H:%M:%S').time())
     if (now >= daystart and now < evening_start):
-        perform_task("day",lamp)
+        perform_task("day", lamp)
     elif (now >= evening_start and now < evening_stop):
-        perform_task("evening",lamp)
-    elif (now > evening_stop or now < daystart):
-        perform_task("night",lamp)
+        perform_task("evening", lamp)
+    elif (now > evening_stop or now < latenight_time):
+        perform_task("night", lamp)
+    elif (now > latenight_time or now < daystart):
+        perform_task("latenight", lamp)
     else:
         print("\nWell, that didn't work. )")
         sys.exit()
@@ -133,7 +137,7 @@ def main():
                 autodim(lamp)
             elif state == 1:
                 perform_task(sys.argv[1],lamp)
-            elif state ==0 and sys.argv[1] !="on":
+            elif state == 0 and sys.argv[1] != "on":
                 print("Lamp is off.")
             else:
                 perform_task(sys.argv[1],lamp)
